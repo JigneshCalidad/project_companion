@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import axios from 'axios'
+import api from '../api'
 import '../App.css'
 
 function Conversation() {
@@ -14,7 +14,7 @@ function Conversation() {
 
     setLoading(true)
     try {
-      const res = await axios.post('/api/ask', { question })
+      const res = await api.post('/api/ask', { question })
       setResponse(res.data)
       setHistory([...history, { question, response: res.data }])
       setQuestion('')

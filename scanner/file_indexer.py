@@ -94,7 +94,8 @@ def index_directory(root_path: str, max_depth: int = 100) -> List[FileInfo]:
         
         try:
             file_info.size = file_path.stat().st_size
-            with open(file_path, 'rb') as f:
+            # Count lines efficiently by reading as text with error handling
+            with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
                 file_info.line_count = sum(1 for _ in f)
         except (OSError, IOError):
             pass

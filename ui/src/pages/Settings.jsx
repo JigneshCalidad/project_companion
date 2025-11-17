@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import axios from 'axios'
+import api from '../api'
 import '../App.css'
 
 function Settings() {
@@ -14,7 +14,7 @@ function Settings() {
 
   const loadSettings = async () => {
     try {
-      const response = await axios.get('/api/settings')
+      const response = await api.get('/api/settings')
       setSettings(response.data)
       setEnableDynamicScan(response.data.enable_dynamic_scan)
       setReadOnlyMode(response.data.read_only_mode)
@@ -27,7 +27,7 @@ function Settings() {
 
   const saveSettings = async () => {
     try {
-      await axios.post('/api/settings', {
+      await api.post('/api/settings', {
         enable_dynamic_scan: enableDynamicScan,
         read_only_mode: readOnlyMode
       })

@@ -1,5 +1,6 @@
 """Service for querying the knowledge graph."""
 
+from typing import Optional
 from knowledge.store import KnowledgeStore
 
 

@@ -180,7 +180,7 @@ def _resolve_import(import_name: str, from_file: str, root_path: str) -> Optiona
     if len(parts) > 1:
         possible_paths.extend([
             root / parts[0] / f"{parts[-1]}.py",
-            root / '/'.join(parts[:-1]) / f"{parts[-1]}.py",
+            root / Path(*parts[:-1]) / f"{parts[-1]}.py",
         ])
     
     for path in possible_paths:

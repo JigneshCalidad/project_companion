@@ -54,29 +54,31 @@ def _extract_headings(content: str, file_path: str) -> List[Symbol]:
             headings.append(symbol)
         
         # Match Setext headings: Heading\n=====
-        if i < len(lines) and re.match(r'^={3,}$', lines[i]):
-            heading_text = line.strip()
-            symbol = Symbol(
-                name=heading_text,
-                type=NodeType.HEADING,
-                file_path=file_path,
-                line_start=i,
-                line_end=i + 1,
-                metadata={"level": 1}
-            )
-            headings.append(symbol)
-        
-        if i < len(lines) and re.match(r'^-{3,}$', lines[i]):
-            heading_text = line.strip()
-            symbol = Symbol(
-                name=heading_text,
-                type=NodeType.HEADING,
-                file_path=file_path,
-                line_start=i,
-                line_end=i + 1,
-                metadata={"level": 2}
-            )
-            headings.append(symbol)
+        # Check if there's a next line (i is 1-indexed, but lines is 0-indexed)
+        if i < len(lines):
+            next_line = lines[i]  # lines[i] is the next line (0-indexed array)
+            if re.match(r'^={3,}$', next_line):
+                heading_text = line.strip()
+                symbol = Symbol(
+                    name=heading_text,
+                    type=NodeType.HEADING,
+                    file_path=file_path,
+                    line_start=i,
+                    line_end=i + 1,
+                    metadata={"level": 1}
+                )
+                headings.append(symbol)
+            elif re.match(r'^-{3,}$', next_line):
+                heading_text = line.strip()
+                symbol = Symbol(
+                    name=heading_text,
+                    type=NodeType.HEADING,
+                    file_path=file_path,
+                    line_start=i,
+                    line_end=i + 1,
+                    metadata={"level": 2}
+                )
+                headings.append(symbol)
     
     return headings
 

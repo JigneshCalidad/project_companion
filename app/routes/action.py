@@ -107,10 +107,13 @@ async def approve_action(
         # Execute the action (simplified - in production, use a task queue)
         try:
             import subprocess
+            import shlex
             if action["details"].get("command"):
+                # Security: Parse command safely without shell=True
+                command_parts = shlex.split(action["details"]["command"])
                 result = subprocess.run(
-                    action["details"]["command"],
-                    shell=True,
+                    command_parts,
+                    shell=False,
                     capture_output=True,
                     text=True,
                     timeout=30

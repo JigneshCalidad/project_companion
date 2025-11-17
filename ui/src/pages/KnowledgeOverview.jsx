@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import axios from 'axios'
+import api from '../api'
 import '../App.css'
 
 function KnowledgeOverview() {
@@ -14,7 +14,7 @@ function KnowledgeOverview() {
 
   const loadStats = async () => {
     try {
-      const response = await axios.get('/api/graph/statistics')
+      const response = await api.get('/api/graph/statistics')
       setStats(response.data)
     } catch (error) {
       console.error('Error loading stats:', error)
@@ -25,7 +25,7 @@ function KnowledgeOverview() {
 
   const loadMermaid = async () => {
     try {
-      const response = await axios.get('/api/graph/export/mermaid')
+      const response = await api.get('/api/graph/export/mermaid')
       setMermaid(response.data.mermaid)
     } catch (error) {
       console.error('Error loading mermaid:', error)
@@ -34,7 +34,7 @@ function KnowledgeOverview() {
 
   const exportJson = async () => {
     try {
-      const response = await axios.get('/api/graph/export/json')
+      const response = await api.get('/api/graph/export/json')
       const blob = new Blob([JSON.stringify(response.data, null, 2)], { type: 'application/json' })
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')

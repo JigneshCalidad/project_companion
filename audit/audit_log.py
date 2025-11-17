@@ -20,25 +20,24 @@ class AuditLog:
     
     def _init_database(self):
         """Initialize SQLite database for structured audit logs."""
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS audit_log (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                action_type TEXT NOT NULL,
-                user TEXT,
-                details TEXT,
-                status TEXT,
-                approved_by TEXT,
-                approved_at TIMESTAMP,
-                result TEXT
-            )
-        """)
-        
-        conn.commit()
-        conn.close()
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS audit_log (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    action_type TEXT NOT NULL,
+                    user TEXT,
+                    details TEXT,
+                    status TEXT,
+                    approved_by TEXT,
+                    approved_at TIMESTAMP,
+                    result TEXT
+                )
+            """)
+            
+            conn.commit()
     
     def log_action_request(self, action_type: str, user: str, details: Dict) -> int:
         """Log an action request."""
@@ -51,15 +50,14 @@ class AuditLog:
             f.write(log_entry)
         
         # Write to database
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        cursor.execute("""
-            INSERT INTO audit_log (timestamp, action_type, user, details, status)
-            VALUES (?, ?, ?, ?, ?)
-        """, (timestamp, action_type, user, details_json, "pending"))
-        action_id = cursor.lastrowid
-        conn.commit()
-        conn.close()
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                INSERT INTO audit_log (timestamp, action_type, user, details, status)
+                VALUES (?, ?, ?, ?, ?)
+            """, (timestamp, action_type, user, details_json, "pending"))
+            action_id = cursor.lastrowid
+            conn.commit()
         
         return action_id
     
@@ -71,15 +69,14 @@ class AuditLog:
         with open(self.log_path, 'a') as f:
             f.write(log_entry)
         
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        cursor.execute("""
-            UPDATE audit_log
-            SET approved_by = ?, approved_at = ?, status = ?
-            WHERE id = ?
-        """, (approved_by, timestamp, "approved" if approved else "rejected", action_id))
-        conn.commit()
-        conn.close()
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                UPDATE audit_log
+                SET approved_by = ?, approved_at = ?, status = ?
+                WHERE id = ?
+            """, (approved_by, timestamp, "approved" if approved else "rejected", action_id))
+            conn.commit()
     
     def log_action_execution(self, action_id: int, result: Dict, success: bool):
         """Log action execution result."""
@@ -91,66 +88,63 @@ class AuditLog:
         with open(self.log_path, 'a') as f:
             f.write(log_entry)
         
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        cursor.execute("""
-            UPDATE audit_log
-            SET status = ?, result = ?
-            WHERE id = ?
-        """, (status, result_json, action_id))
-        conn.commit()
-        conn.close()
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                UPDATE audit_log
+                SET status = ?, result = ?
+                WHERE id = ?
+            """, (status, result_json, action_id))
+            conn.commit()
     
     def get_pending_actions(self) -> List[Dict]:
         """Get all pending actions."""
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        cursor.execute("""
-            SELECT id, timestamp, action_type, user, details, status
-            FROM audit_log
-            WHERE status = 'pending'
-            ORDER BY timestamp DESC
-        """)
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT id, timestamp, action_type, user, details, status
+                FROM audit_log
+                WHERE status = 'pending'
+                ORDER BY timestamp DESC
+            """)
+            
+            actions = []
+            for row in cursor.fetchall():
+                actions.append({
+                    "id": row[0],
+                    "timestamp": row[1],
+                    "action_type": row[2],
+                    "user": row[3],
+                    "details": json.loads(row[4]),
+                    "status": row[5]
+                })
         
-        actions = []
-        for row in cursor.fetchall():
-            actions.append({
-                "id": row[0],
-                "timestamp": row[1],
-                "action_type": row[2],
-                "user": row[3],
-                "details": json.loads(row[4]),
-                "status": row[5]
-            })
-        
-        conn.close()
         return actions
     
     def get_action(self, action_id: int) -> Optional[Dict]:
         """Get a specific action by ID."""
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        cursor.execute("""
-            SELECT id, timestamp, action_type, user, details, status, approved_by, approved_at, result
-            FROM audit_log
-            WHERE id = ?
-        """, (action_id,))
-        
-        row = cursor.fetchone()
-        conn.close()
-        
-        if not row:
-            return None
-        
-        return {
-            "id": row[0],
-            "timestamp": row[1],
-            "action_type": row[2],
-            "user": row[3],
-            "details": json.loads(row[4]) if row[4] else {},
-            "status": row[5],
-            "approved_by": row[6],
-            "approved_at": row[7],
-            "result": json.loads(row[8]) if row[8] else None
-        }
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT id, timestamp, action_type, user, details, status, approved_by, approved_at, result
+                FROM audit_log
+                WHERE id = ?
+            """, (action_id,))
+            
+            row = cursor.fetchone()
+            
+            if not row:
+                return None
+            
+            return {
+                "id": row[0],
+                "timestamp": row[1],
+                "action_type": row[2],
+                "user": row[3],
+                "details": json.loads(row[4]) if row[4] else {},
+                "status": row[5],
+                "approved_by": row[6],
+                "approved_at": row[7],
+                "result": json.loads(row[8]) if row[8] else None
+            }
 

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import axios from 'axios'
+import api from '../api'
 import '../App.css'
 
 function ActionRequests() {
@@ -13,7 +13,7 @@ function ActionRequests() {
 
   const loadActions = async () => {
     try {
-      const response = await axios.get('/api/actions/pending')
+      const response = await api.get('/api/actions/pending')
       setActions(response.data)
     } catch (error) {
       console.error('Error loading actions:', error)
@@ -27,7 +27,7 @@ function ActionRequests() {
     if (!command.trim()) return
 
     try {
-      await axios.post('/api/actions/request', {
+      await api.post('/api/actions/request', {
         action_type: 'command',
         command: command,
         details: {}
@@ -42,7 +42,7 @@ function ActionRequests() {
 
   const approveAction = async (actionId, approved) => {
     try {
-      await axios.post('/api/actions/approve', {
+      await api.post('/api/actions/approve', {
         action_id: actionId,
         approved: approved,
         user: 'ui_user'

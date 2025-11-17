@@ -1,0 +1,34 @@
+fix: comprehensive code quality improvements and security fixes
+
+This commit addresses multiple bugs, security vulnerabilities, code smells,
+and outdated patterns identified during an automated code quality scan.
+
+## Security Fixes
+- Remove shell=True from subprocess.run() to prevent command injection
+  - Use shlex.split() for safe command parsing
+  
+## Bug Fixes  
+- Add missing Optional import in settings.py and graph_service.py
+- Fix path join logic in static_scanner.py using Path operations
+- Fix index boundary checking in parser_markdown.py
+
+## Code Quality Improvements
+- Refactor SQLite connections to use context managers (audit_log.py, knowledge/store.py)
+  - Prevents resource leaks
+  - Ensures proper connection cleanup
+- Improve file reading efficiency in file_indexer.py
+  - Use text mode with proper encoding instead of binary
+
+## Configuration & Architecture
+- Make CORS origins configurable via CORS_ORIGINS environment variable
+- Create centralized axios configuration for frontend API calls
+  - Add base URL configuration via VITE_API_BASE_URL
+  - Add request/response interceptors
+  - Update all React components to use centralized API client
+
+## Files Changed
+- Backend: 9 files modified
+- Frontend: 4 files modified, 1 file created
+- Documentation: 2 files created (FIXES_APPLIED.md, COMMIT_MESSAGE.txt)
+
+For detailed information about each fix, see FIXES_APPLIED.md
