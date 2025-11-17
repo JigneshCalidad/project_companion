@@ -10,6 +10,7 @@ function KnowledgeOverview() {
   useEffect(() => {
     loadStats()
     loadMermaid()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const loadStats = async () => {

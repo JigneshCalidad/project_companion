@@ -60,7 +60,7 @@ function Conversation() {
                 <h4>Matches:</h4>
                 <ul style={{ marginLeft: '1.5rem', marginTop: '0.5rem' }}>
                   {response.matches.slice(0, 10).map((match, idx) => (
-                    <li key={idx} style={{ marginBottom: '0.5rem' }}>
+                    <li key={match.id || `match-${idx}`} style={{ marginBottom: '0.5rem' }}>
                       <strong>{match.label}</strong> ({match.type})
                       {match.file_path && <span style={{ color: '#666' }}> - {match.file_path}</span>}
                     </li>
@@ -74,7 +74,7 @@ function Conversation() {
                 <h4>Related:</h4>
                 <ul style={{ marginLeft: '1.5rem', marginTop: '0.5rem' }}>
                   {response.related.slice(0, 5).map((rel, idx) => (
-                    <li key={idx} style={{ marginBottom: '0.5rem' }}>
+                    <li key={rel.id || `related-${idx}`} style={{ marginBottom: '0.5rem' }}>
                       <strong>{rel.label}</strong> ({rel.type})
                     </li>
                   ))}
@@ -89,7 +89,7 @@ function Conversation() {
         <div style={{ marginTop: '2rem' }}>
           <h3>History</h3>
           {history.slice().reverse().map((item, idx) => (
-            <div key={idx} className="card" style={{ marginTop: '1rem' }}>
+            <div key={`history-${idx}-${item.question.substring(0, 20)}`} className="card" style={{ marginTop: '1rem' }}>
               <p><strong>Q:</strong> {item.question}</p>
               <p style={{ marginTop: '0.5rem' }}>
                 <strong>A:</strong> Found {item.response.total_matches} matches

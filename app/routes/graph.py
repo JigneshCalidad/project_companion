@@ -8,7 +8,7 @@ from app.services.graph_service import GraphService
 router = APIRouter(prefix="/api/graph", tags=["graph"])
 
 
-def get_graph_service(knowledge_store=None) -> GraphService:
+def get_graph_service(knowledge_store: Optional[object] = None) -> GraphService:
     """Dependency to get graph service."""
     from knowledge.store import KnowledgeStore
     if knowledge_store is None:

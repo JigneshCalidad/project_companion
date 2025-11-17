@@ -107,10 +107,19 @@ async def approve_action(
         # Execute the action (simplified - in production, use a task queue)
         try:
             import subprocess
+            import shlex
             if action["details"].get("command"):
+                # Security: Use shell=False and split command to prevent injection
+                command_str = action["details"]["command"]
+                # Split command safely - only allow simple commands
+                # In production, use a whitelist of allowed commands
+                command_parts = shlex.split(command_str)
+                if not command_parts:
+                    raise ValueError("Empty command")
+                
                 result = subprocess.run(
-                    action["details"]["command"],
-                    shell=True,
+                    command_parts,
+                    shell=False,
                     capture_output=True,
                     text=True,
                     timeout=30

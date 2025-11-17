@@ -61,7 +61,10 @@ def _parse_file_by_language(file_info: FileInfo) -> Optional[FileInfo]:
             return parse_markdown(file_info.path)
     except Exception as e:
         # Log error but continue
-        print(f"Error parsing {file_info.path}: {e}")
+        # In production, use proper logging instead of print
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.warning(f"Error parsing {file_info.path}: {e}")
         return file_info
     
     return file_info
@@ -178,9 +181,11 @@ def _resolve_import(import_name: str, from_file: str, root_path: str) -> Optiona
     # Try with path parts
     parts = import_name.split('.')
     if len(parts) > 1:
+        # Build path from parts correctly
+        import_path = Path(*parts[:-1])
         possible_paths.extend([
             root / parts[0] / f"{parts[-1]}.py",
-            root / '/'.join(parts[:-1]) / f"{parts[-1]}.py",
+            root / import_path / f"{parts[-1]}.py",
         ])
     
     for path in possible_paths:

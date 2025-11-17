@@ -25,8 +25,8 @@ class ScanResponse(BaseModel):
 
 
 def get_scan_service(
-    knowledge_store = None,  # Will be injected
-    permission_service: PermissionService = None  # Will be injected
+    knowledge_store: Optional[object] = None,  # Will be injected
+    permission_service: Optional[PermissionService] = None  # Will be injected
 ) -> ScanService:
     """Dependency to get scan service."""
     # This will be properly injected in main.py
@@ -47,8 +47,10 @@ async def scan_static(
     try:
         result = scan_service.scan_static(request.path)
         return ScanResponse(**result)
+    except (ValueError, FileNotFoundError, PermissionError) as e:
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 
 @router.post("/dynamic")
@@ -65,6 +67,8 @@ async def scan_dynamic(
         return result
     except PermissionError as e:
         raise HTTPException(status_code=403, detail=str(e))
+    except (ValueError, RuntimeError) as e:
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 

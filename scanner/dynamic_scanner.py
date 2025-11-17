@@ -38,8 +38,11 @@ class DynamicScanner:
         
         try:
             await page.goto(url, wait_until="networkidle", timeout=30000)
-        except Exception as e:
+        except (TimeoutError, RuntimeError) as e:
             return {"error": str(e), "url": url}
+        except Exception as e:
+            # Log unexpected errors but don't fail completely
+            return {"error": f"Unexpected error: {str(e)}", "url": url}
         
         # Extract page information
         title = await page.title()

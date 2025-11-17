@@ -21,111 +21,107 @@ class KnowledgeStore:
     
     def _init_database(self):
         """Initialize SQLite database schema."""
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        
-        # Nodes table
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS nodes (
-                id TEXT PRIMARY KEY,
-                type TEXT NOT NULL,
-                label TEXT NOT NULL,
-                data TEXT NOT NULL,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        """)
-        
-        # Edges table
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS edges (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                source TEXT NOT NULL,
-                target TEXT NOT NULL,
-                type TEXT NOT NULL,
-                data TEXT,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (source) REFERENCES nodes(id),
-                FOREIGN KEY (target) REFERENCES nodes(id)
-            )
-        """)
-        
-        # Scans table (track scan history)
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS scans (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                root_path TEXT NOT NULL,
-                metadata TEXT,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        """)
-        
-        conn.commit()
-        conn.close()
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            
+            # Nodes table
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS nodes (
+                    id TEXT PRIMARY KEY,
+                    type TEXT NOT NULL,
+                    label TEXT NOT NULL,
+                    data TEXT NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+            
+            # Edges table
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS edges (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    source TEXT NOT NULL,
+                    target TEXT NOT NULL,
+                    type TEXT NOT NULL,
+                    data TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (source) REFERENCES nodes(id),
+                    FOREIGN KEY (target) REFERENCES nodes(id)
+                )
+            """)
+            
+            # Scans table (track scan history)
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS scans (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    root_path TEXT NOT NULL,
+                    metadata TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+            
+            conn.commit()
     
     def _load_graph(self):
         """Load graph from database into NetworkX."""
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        
-        # Load nodes
-        cursor.execute("SELECT id, type, label, data FROM nodes")
-        for row in cursor.fetchall():
-            node_id, node_type, label, data_json = row
-            data = json.loads(data_json)
-            self.graph.add_node(node_id, type=node_type, label=label, **data)
-        
-        # Load edges
-        cursor.execute("SELECT source, target, type, data FROM edges")
-        for row in cursor.fetchall():
-            source, target, edge_type, data_json = row
-            data = json.loads(data_json) if data_json else {}
-            self.graph.add_edge(source, target, type=edge_type, **data)
-        
-        conn.close()
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            
+            # Load nodes
+            cursor.execute("SELECT id, type, label, data FROM nodes")
+            for row in cursor.fetchall():
+                node_id, node_type, label, data_json = row
+                data = json.loads(data_json)
+                self.graph.add_node(node_id, type=node_type, label=label, **data)
+            
+            # Load edges
+            cursor.execute("SELECT source, target, type, data FROM edges")
+            for row in cursor.fetchall():
+                source, target, edge_type, data_json = row
+                data = json.loads(data_json) if data_json else {}
+                self.graph.add_edge(source, target, type=edge_type, **data)
     
     def add_scan(self, scan_result) -> int:
         """Add a scan result to the knowledge graph."""
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        
-        # Record scan
-        metadata_json = json.dumps(scan_result.metadata)
-        cursor.execute(
-            "INSERT INTO scans (root_path, metadata) VALUES (?, ?)",
-            (scan_result.root_path, metadata_json)
-        )
-        scan_id = cursor.lastrowid
-        
-        # Add nodes
-        for node in scan_result.graph_nodes:
-            node_id = node["id"]
-            node_data = {k: v for k, v in node.items() if k != "id"}
-            node_data_json = json.dumps(node_data)
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
             
-            cursor.execute("""
-                INSERT OR REPLACE INTO nodes (id, type, label, data, updated_at)
-                VALUES (?, ?, ?, ?, ?)
-            """, (node_id, node["type"], node["label"], node_data_json, datetime.now()))
+            # Record scan
+            metadata_json = json.dumps(scan_result.metadata)
+            cursor.execute(
+                "INSERT INTO scans (root_path, metadata) VALUES (?, ?)",
+                (scan_result.root_path, metadata_json)
+            )
+            scan_id = cursor.lastrowid
             
-            # Update NetworkX graph
-            self.graph.add_node(node_id, **node_data)
-        
-        # Add edges
-        for edge in scan_result.graph_edges:
-            edge_data = {k: v for k, v in edge.items() if k not in ("source", "target")}
-            edge_data_json = json.dumps(edge_data) if edge_data else None
+            # Add nodes
+            for node in scan_result.graph_nodes:
+                node_id = node["id"]
+                node_data = {k: v for k, v in node.items() if k != "id"}
+                node_data_json = json.dumps(node_data)
+                
+                cursor.execute("""
+                    INSERT OR REPLACE INTO nodes (id, type, label, data, updated_at)
+                    VALUES (?, ?, ?, ?, ?)
+                """, (node_id, node["type"], node["label"], node_data_json, datetime.now()))
+                
+                # Update NetworkX graph
+                self.graph.add_node(node_id, **node_data)
             
-            cursor.execute("""
-                INSERT INTO edges (source, target, type, data)
-                VALUES (?, ?, ?, ?)
-            """, (edge["source"], edge["target"], edge["type"], edge_data_json))
+            # Add edges
+            for edge in scan_result.graph_edges:
+                edge_data = {k: v for k, v in edge.items() if k not in ("source", "target")}
+                edge_data_json = json.dumps(edge_data) if edge_data else None
+                
+                cursor.execute("""
+                    INSERT INTO edges (source, target, type, data)
+                    VALUES (?, ?, ?, ?)
+                """, (edge["source"], edge["target"], edge["type"], edge_data_json))
+                
+                # Update NetworkX graph
+                self.graph.add_edge(edge["source"], edge["target"], **edge_data)
             
-            # Update NetworkX graph
-            self.graph.add_edge(edge["source"], edge["target"], **edge_data)
-        
-        conn.commit()
-        conn.close()
+            conn.commit()
         
         return scan_id
     

@@ -9,6 +9,7 @@ function ActionRequests() {
 
   useEffect(() => {
     loadActions()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const loadActions = async () => {

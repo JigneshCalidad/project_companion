@@ -118,7 +118,7 @@ class PythonVisitor(ast.NodeVisitor):
     def visit_Assign(self, node):
         """Extract variable assignments (module-level only)."""
         # Only track module-level variables
-        if isinstance(node.targets[0], ast.Name):
+        if node.targets and isinstance(node.targets[0], ast.Name):
             var_name = node.targets[0].id
             symbol = Symbol(
                 name=var_name,

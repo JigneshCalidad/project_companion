@@ -2,6 +2,7 @@
 
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
+from typing import Optional
 from app.services.permissions import PermissionService
 
 
