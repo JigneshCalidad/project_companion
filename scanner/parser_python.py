@@ -1,35 +1,36 @@
 """Python code parser using AST."""
 
 import ast
-import os
 from typing import List, Optional
-from scanner.schema import Symbol, NodeType, FileInfo
+
+from scanner.schema import FileInfo, NodeType, Symbol
 
 
 def parse_file(file_path: str) -> Optional[FileInfo]:
     """Parse a Python file and extract symbols."""
     try:
-        with open(file_path, 'r', encoding='utf-8') as f:
+        with open(file_path, "r", encoding="utf-8") as f:
             content = f.read()
             tree = ast.parse(content, filename=file_path)
-    except (SyntaxError, UnicodeDecodeError) as e:
+    except (SyntaxError, UnicodeDecodeError):
         # Skip files that can't be parsed
         return None
-    
+
     file_info = FileInfo(
         path=file_path,
         language="python",
         size=len(content),
-        line_count=len(content.splitlines())
+        line_count=len(content.splitlines()),
     )
-    
+
     visitor = PythonVisitor(file_path)
     visitor.visit(tree)
-    
+
     file_info.symbols = visitor.symbols
     file_info.imports = visitor.imports
-    file_info.todos = visitor.todos
-    
+    comment_todos = _extract_comment_todos(content)
+    file_info.todos = visitor.todos + comment_todos
+
     return file_info
 
 
@@ -146,8 +147,20 @@ class PythonVisitor(ast.NodeVisitor):
         if isinstance(node, ast.Expr) and isinstance(node.value, ast.Constant):
             if isinstance(node.value.value, str):
                 content = node.value.value.lower()
-                if 'todo' in content or 'fixme' in content:
+                if "todo" in content or "fixme" in content:
                     self.todos.append(node.value.value)
-        
+
         super().generic_visit(node)
+
+
+def _extract_comment_todos(content: str) -> List[str]:
+    """Collect inline TODO/FIXME comments with line numbers."""
+    todos: List[str] = []
+    for line_number, raw_line in enumerate(content.splitlines(), start=1):
+        stripped = raw_line.strip()
+        if stripped.startswith("#"):
+            lowered = stripped.lower()
+            if "todo" in lowered or "fixme" in lowered:
+                todos.append(f"{line_number}: {stripped}")
+    return todos
 

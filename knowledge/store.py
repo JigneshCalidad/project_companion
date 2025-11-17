@@ -1,27 +1,52 @@
 """Knowledge graph storage using NetworkX and SQLite."""
 
+from __future__ import annotations
+
 import json
 import sqlite3
-from pathlib import Path
-from typing import Dict, List, Optional, Any, Tuple
-import networkx as nx
 from datetime import datetime
+from pathlib import Path
+from typing import Any, Dict, List, Optional
+
+import networkx as nx
 
 
 class KnowledgeStore:
     """Persistent storage for knowledge graphs."""
-    
+
     def __init__(self, db_path: str = "knowledge/graph.db"):
         """Initialize the knowledge store."""
-        self.db_path = Path(db_path)
-        self.db_path.parent.mkdir(parents=True, exist_ok=True)
+        self._is_in_memory = db_path == ":memory:"
+        self._connection: Optional[sqlite3.Connection] = None
+
+        if self._is_in_memory:
+            self.db_path = db_path
+            self._connection = sqlite3.connect(":memory:")
+        else:
+            self.db_path = Path(db_path)
+            self.db_path.parent.mkdir(parents=True, exist_ok=True)
+
         self.graph = nx.DiGraph()
         self._init_database()
         self._load_graph()
+
+    def _get_connection(self) -> sqlite3.Connection:
+        """Return an open SQLite connection, reusing it for in-memory databases."""
+        if self._is_in_memory:
+            assert (
+                self._connection is not None
+            ), "In-memory KnowledgeStore must maintain a persistent connection."
+            return self._connection
+        return sqlite3.connect(str(self.db_path))
+
+    def _close_connection(self, conn: sqlite3.Connection) -> None:
+        """Close connection when not reusing a persistent one."""
+        if not self._is_in_memory:
+            conn.close()
     
     def _init_database(self):
         """Initialize SQLite database schema."""
-        conn = sqlite3.connect(self.db_path)
+        conn = self._get_connection()
         cursor = conn.cursor()
         
         # Nodes table
@@ -61,11 +86,11 @@ class KnowledgeStore:
         """)
         
         conn.commit()
-        conn.close()
+        self._close_connection(conn)
     
     def _load_graph(self):
         """Load graph from database into NetworkX."""
-        conn = sqlite3.connect(self.db_path)
+        conn = self._get_connection()
         cursor = conn.cursor()
         
         # Load nodes
@@ -82,11 +107,11 @@ class KnowledgeStore:
             data = json.loads(data_json) if data_json else {}
             self.graph.add_edge(source, target, type=edge_type, **data)
         
-        conn.close()
+        self._close_connection(conn)
     
     def add_scan(self, scan_result) -> int:
         """Add a scan result to the knowledge graph."""
-        conn = sqlite3.connect(self.db_path)
+        conn = self._get_connection()
         cursor = conn.cursor()
         
         # Record scan
@@ -125,7 +150,7 @@ class KnowledgeStore:
             self.graph.add_edge(edge["source"], edge["target"], **edge_data)
         
         conn.commit()
-        conn.close()
+        self._close_connection(conn)
         
         return scan_id
     
@@ -245,10 +270,19 @@ class KnowledgeStore:
     
     def get_statistics(self) -> Dict:
         """Get graph statistics."""
+        node_count = self.graph.number_of_nodes()
+        edge_count = self.graph.number_of_edges()
+        if node_count == 0:
+            is_connected = False
+            components = 0
+        else:
+            is_connected = nx.is_weakly_connected(self.graph)
+            components = nx.number_weakly_connected_components(self.graph)
+
         return {
-            "node_count": self.graph.number_of_nodes(),
-            "edge_count": self.graph.number_of_edges(),
-            "is_connected": nx.is_weakly_connected(self.graph),
-            "components": nx.number_weakly_connected_components(self.graph),
+            "node_count": node_count,
+            "edge_count": edge_count,
+            "is_connected": is_connected,
+            "components": components,
         }
 

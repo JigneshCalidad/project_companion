@@ -1,7 +1,10 @@
 """Settings routes."""
 
-from fastapi import APIRouter, HTTPException, Depends
+from typing import Optional
+
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
+
 from app.services.permissions import PermissionService
 
 
@@ -19,7 +22,9 @@ def get_permission_service() -> PermissionService:
 
 
 @router.get("")
-async def get_settings(permission_service: PermissionService = Depends(get_permission_service)):
+async def get_settings(
+    permission_service: PermissionService = Depends(get_permission_service),
+):
     """Get current settings."""
     return permission_service.get_settings()
 
@@ -27,10 +32,10 @@ async def get_settings(permission_service: PermissionService = Depends(get_permi
 @router.post("")
 async def update_settings(
     settings: SettingsUpdate,
-    permission_service: PermissionService = Depends(get_permission_service)
+    permission_service: PermissionService = Depends(get_permission_service),
 ):
     """Update settings (with validation)."""
-    update_dict = settings.dict(exclude_none=True)
+    update_dict = settings.model_dump(exclude_none=True)
     permission_service.update_settings(update_dict)
     return permission_service.get_settings()
 
