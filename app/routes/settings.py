@@ -1,5 +1,7 @@
 """Settings routes."""
 
+from typing import Optional
+
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from app.services.permissions import PermissionService

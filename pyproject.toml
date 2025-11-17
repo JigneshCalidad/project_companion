@@ -37,6 +37,9 @@ dev = [
 [project.scripts]
 companion = "cli.companion:main"
 
+[tool.setuptools]
+packages = ["app", "audit", "cli", "knowledge", "scanner"]
+
 [tool.black]
 line-length = 100
 target-version = ['py311']

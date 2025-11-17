@@ -24,17 +24,12 @@ class ScanResponse(BaseModel):
     edges_added: int
 
 
-def get_scan_service(
-    knowledge_store = None,  # Will be injected
-    permission_service: PermissionService = None  # Will be injected
-) -> ScanService:
+def get_scan_service() -> ScanService:
     """Dependency to get scan service."""
-    # This will be properly injected in main.py
+    # This is a simple factory for now; main.py can override it during startup.
     from knowledge.store import KnowledgeStore
-    if knowledge_store is None:
-        knowledge_store = KnowledgeStore()
-    if permission_service is None:
-        permission_service = PermissionService()
+    knowledge_store = KnowledgeStore()
+    permission_service = PermissionService()
     return ScanService(knowledge_store, permission_service)
 
 

@@ -1,15 +1,17 @@
 """Python code parser using AST."""
 
 import ast
-import os
+import io
+import tokenize
 from typing import List, Optional
+
 from scanner.schema import Symbol, NodeType, FileInfo
 
 
 def parse_file(file_path: str) -> Optional[FileInfo]:
     """Parse a Python file and extract symbols."""
     try:
-        with open(file_path, 'r', encoding='utf-8') as f:
+        with open(file_path, "r", encoding="utf-8") as f:
             content = f.read()
             tree = ast.parse(content, filename=file_path)
     except (SyntaxError, UnicodeDecodeError) as e:
@@ -28,9 +30,27 @@ def parse_file(file_path: str) -> Optional[FileInfo]:
     
     file_info.symbols = visitor.symbols
     file_info.imports = visitor.imports
-    file_info.todos = visitor.todos
+    comment_todos = _extract_comment_todos(content)
+    file_info.todos = visitor.todos + comment_todos
     
     return file_info
+
+
+def _extract_comment_todos(content: str) -> List[str]:
+    """Capture TODO/FIXME style comments using tokenize for accuracy."""
+    todos: List[str] = []
+    reader = io.StringIO(content).readline
+    try:
+        for token in tokenize.generate_tokens(reader):
+            if token.type == tokenize.COMMENT:
+                comment_text = token.string.lstrip("#").strip()
+                lowered = comment_text.lower()
+                if "todo" in lowered or "fixme" in lowered:
+                    todos.append(comment_text or token.string)
+    except tokenize.TokenError:
+        # Malformed files aren't critical for TODO extraction
+        pass
+    return todos
 
 
 class PythonVisitor(ast.NodeVisitor):

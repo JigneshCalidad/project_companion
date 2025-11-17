@@ -3,7 +3,7 @@
 import json
 import sqlite3
 from pathlib import Path
-from typing import Dict, List, Optional, Any, Tuple
+from typing import Dict, List, Optional, Any
 import networkx as nx
 from datetime import datetime
 
@@ -13,15 +13,39 @@ class KnowledgeStore:
     
     def __init__(self, db_path: str = "knowledge/graph.db"):
         """Initialize the knowledge store."""
-        self.db_path = Path(db_path)
-        self.db_path.parent.mkdir(parents=True, exist_ok=True)
+        db_path_str = str(db_path)
+        self._db_location = db_path_str
+        self._use_in_memory = db_path_str == ":memory:" or db_path_str.startswith("file:")
+        self._memory_conn: Optional[sqlite3.Connection] = None
+
+        if not self._use_in_memory:
+            self.db_path = Path(db_path_str)
+            self.db_path.parent.mkdir(parents=True, exist_ok=True)
+            self._db_location = str(self.db_path)
+        else:
+            self.db_path = None
+
         self.graph = nx.DiGraph()
         self._init_database()
         self._load_graph()
+
+    def _get_connection(self) -> sqlite3.Connection:
+        """Return a connection, keeping memory-backed DBs alive across calls."""
+        if self._use_in_memory:
+            if self._memory_conn is None:
+                uri_flag = self._db_location.startswith("file:")
+                self._memory_conn = sqlite3.connect(self._db_location, uri=uri_flag)
+            return self._memory_conn
+        return sqlite3.connect(self._db_location)
+
+    def _close_connection(self, conn: sqlite3.Connection) -> None:
+        """Close the connection unless we are using a shared in-memory database."""
+        if not self._use_in_memory:
+            conn.close()
     
     def _init_database(self):
         """Initialize SQLite database schema."""
-        conn = sqlite3.connect(self.db_path)
+        conn = self._get_connection()
         cursor = conn.cursor()
         
         # Nodes table
@@ -61,11 +85,11 @@ class KnowledgeStore:
         """)
         
         conn.commit()
-        conn.close()
+        self._close_connection(conn)
     
     def _load_graph(self):
         """Load graph from database into NetworkX."""
-        conn = sqlite3.connect(self.db_path)
+        conn = self._get_connection()
         cursor = conn.cursor()
         
         # Load nodes
@@ -82,11 +106,11 @@ class KnowledgeStore:
             data = json.loads(data_json) if data_json else {}
             self.graph.add_edge(source, target, type=edge_type, **data)
         
-        conn.close()
+        self._close_connection(conn)
     
     def add_scan(self, scan_result) -> int:
         """Add a scan result to the knowledge graph."""
-        conn = sqlite3.connect(self.db_path)
+        conn = self._get_connection()
         cursor = conn.cursor()
         
         # Record scan
@@ -125,7 +149,7 @@ class KnowledgeStore:
             self.graph.add_edge(edge["source"], edge["target"], **edge_data)
         
         conn.commit()
-        conn.close()
+        self._close_connection(conn)
         
         return scan_id
     
@@ -245,10 +269,29 @@ class KnowledgeStore:
     
     def get_statistics(self) -> Dict:
         """Get graph statistics."""
+        node_count = self.graph.number_of_nodes()
+        edge_count = self.graph.number_of_edges()
+
+        if node_count == 0:
+            is_connected = False
+            components = 0
+        else:
+            is_connected = nx.is_weakly_connected(self.graph)
+            components = nx.number_weakly_connected_components(self.graph)
+
         return {
-            "node_count": self.graph.number_of_nodes(),
-            "edge_count": self.graph.number_of_edges(),
-            "is_connected": nx.is_weakly_connected(self.graph),
-            "components": nx.number_weakly_connected_components(self.graph),
+            "node_count": node_count,
+            "edge_count": edge_count,
+            "is_connected": is_connected,
+            "components": components,
         }
+
+    def close(self):
+        """Release any long-lived database resources."""
+        if self._memory_conn is not None:
+            self._memory_conn.close()
+            self._memory_conn = None
+
+    def __del__(self):
+        self.close()
 
