@@ -1,10 +1,15 @@
 """Action request and approval routes."""
 
+import subprocess
+import shlex
+import logging
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from typing import Optional
 from app.services.permissions import PermissionService
 from audit.audit_log import AuditLog
+
+logger = logging.getLogger(__name__)
 
 
 router = APIRouter(prefix="/api/actions", tags=["actions"])
@@ -106,25 +111,54 @@ async def approve_action(
     if request.approved:
         # Execute the action (simplified - in production, use a task queue)
         try:
-            import subprocess
-            if action["details"].get("command"):
-                result = subprocess.run(
-                    action["details"]["command"],
-                    shell=True,
-                    capture_output=True,
-                    text=True,
-                    timeout=30
-                )
-                audit_log.log_action_execution(
-                    request.action_id,
-                    {
-                        "stdout": result.stdout,
-                        "stderr": result.stderr,
-                        "returncode": result.returncode
-                    },
-                    result.returncode == 0
-                )
+            command = action["details"].get("command")
+            if command:
+                # Security: Parse command into list to avoid shell injection
+                # Only allow simple commands - in production, use a whitelist
+                try:
+                    # Split command into program and arguments
+                    command_parts = shlex.split(command)
+                    if not command_parts:
+                        raise ValueError("Empty command")
+                    
+                    # Basic validation: ensure we're not executing dangerous commands
+                    # In production, implement a proper command whitelist
+                    program = command_parts[0]
+                    dangerous_commands = {'rm', 'del', 'format', 'mkfs', 'dd', 'shutdown', 'reboot'}
+                    if any(danger in program.lower() for danger in dangerous_commands):
+                        raise ValueError(f"Dangerous command not allowed: {program}")
+                    
+                    result = subprocess.run(
+                        command_parts,
+                        shell=False,  # Never use shell=True for security
+                        capture_output=True,
+                        text=True,
+                        timeout=30
+                    )
+                    audit_log.log_action_execution(
+                        request.action_id,
+                        {
+                            "stdout": result.stdout,
+                            "stderr": result.stderr,
+                            "returncode": result.returncode
+                        },
+                        result.returncode == 0
+                    )
+                except ValueError as ve:
+                    logger.warning(f"Command validation failed: {ve}")
+                    audit_log.log_action_execution(
+                        request.action_id,
+                        {"error": f"Command validation failed: {str(ve)}"},
+                        False
+                    )
+        except subprocess.TimeoutExpired:
+            audit_log.log_action_execution(
+                request.action_id,
+                {"error": "Command execution timed out"},
+                False
+            )
         except Exception as e:
+            logger.error(f"Error executing action {request.action_id}: {e}", exc_info=True)
             audit_log.log_action_execution(
                 request.action_id,
                 {"error": str(e)},

@@ -18,8 +18,11 @@ class PermissionService:
         if self.read_only_mode and action_type != "read":
             return False, "Read-only mode is enabled"
         
+        # Note: require_approval is always True, but this check ensures
+        # that actions must go through the approval workflow
+        # The actual approval check happens in the action endpoint
         if not self.require_approval:
-            return False, "Approval workflow is required"
+            return False, "Approval workflow must be enabled"
         
         return True, None
     
