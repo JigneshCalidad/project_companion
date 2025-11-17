@@ -1,10 +1,13 @@
 """Scan routes."""
 
+import logging
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from typing import Optional
 from app.services.scan_service import ScanService
 from app.services.permissions import PermissionService
+
+logger = logging.getLogger(__name__)
 
 
 router = APIRouter(prefix="/api/scan", tags=["scan"])
@@ -47,8 +50,15 @@ async def scan_static(
     try:
         result = scan_service.scan_static(request.path)
         return ScanResponse(**result)
+    except FileNotFoundError as e:
+        logger.warning(f"Path not found: {request.path}")
+        raise HTTPException(status_code=404, detail=f"Path not found: {request.path}")
+    except PermissionError as e:
+        logger.warning(f"Permission denied for path: {request.path}")
+        raise HTTPException(status_code=403, detail="Permission denied to access this path")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Error scanning repository: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to scan repository. Please check the path and try again.")
 
 
 @router.post("/dynamic")
@@ -64,7 +74,9 @@ async def scan_dynamic(
         result = await scan_service.scan_dynamic(request.url)
         return result
     except PermissionError as e:
-        raise HTTPException(status_code=403, detail=str(e))
+        logger.warning(f"Permission denied for dynamic scan: {request.url}")
+        raise HTTPException(status_code=403, detail="Dynamic scanning is not enabled or permission denied")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Error performing dynamic scan: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to perform dynamic scan. Please try again.")
 

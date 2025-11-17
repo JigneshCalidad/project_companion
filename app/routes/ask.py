@@ -1,8 +1,11 @@
 """Ask/query routes."""
 
+import logging
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from app.services.graph_service import GraphService
+
+logger = logging.getLogger(__name__)
 
 
 router = APIRouter(prefix="/api/ask", tags=["ask"])
@@ -44,5 +47,6 @@ async def ask_question(
             total_matches=result.get("total_matches", 0)
         )
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Error querying knowledge graph: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to process query. Please try again.")
 

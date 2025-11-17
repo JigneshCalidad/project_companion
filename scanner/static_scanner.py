@@ -1,6 +1,7 @@
 """Static code scanner that orchestrates parsing and graph building."""
 
 import os
+import logging
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 from scanner.file_indexer import index_directory
@@ -8,6 +9,8 @@ from scanner.parser_python import parse_file as parse_python
 from scanner.parser_js import parse_file as parse_js
 from scanner.parser_markdown import parse_file as parse_markdown
 from scanner.schema import ScanResult, FileInfo, NodeType, EdgeType
+
+logger = logging.getLogger(__name__)
 
 
 def scan_repository(root_path: str) -> ScanResult:
@@ -61,7 +64,7 @@ def _parse_file_by_language(file_info: FileInfo) -> Optional[FileInfo]:
             return parse_markdown(file_info.path)
     except Exception as e:
         # Log error but continue
-        print(f"Error parsing {file_info.path}: {e}")
+        logger.warning(f"Error parsing {file_info.path}: {e}", exc_info=True)
         return file_info
     
     return file_info
@@ -78,7 +81,12 @@ def _build_graph(files: List[FileInfo], root_path: str) -> Tuple[List[Dict], Lis
     # Create file nodes
     file_node_ids = {}
     for file_info in files:
-        rel_path = str(Path(file_info.path).relative_to(root))
+        try:
+            rel_path = str(Path(file_info.path).relative_to(root))
+        except ValueError:
+            # File is not under root, use absolute path as fallback
+            logger.warning(f"File {file_info.path} is not under root {root_path}, using absolute path")
+            rel_path = str(Path(file_info.path))
         node_id = f"file:{rel_path}"
         file_node_ids[file_info.path] = node_id
         
@@ -134,7 +142,11 @@ def _build_graph(files: List[FileInfo], root_path: str) -> Tuple[List[Dict], Lis
     # Create TODO nodes
     for file_info in files:
         if file_info.todos:
-            rel_path = str(Path(file_info.path).relative_to(root))
+            try:
+                rel_path = str(Path(file_info.path).relative_to(root))
+            except ValueError:
+                # File is not under root, use absolute path as fallback
+                rel_path = str(Path(file_info.path))
             file_node_id = file_node_ids[file_info.path]
             
             for i, todo in enumerate(file_info.todos):
@@ -178,9 +190,10 @@ def _resolve_import(import_name: str, from_file: str, root_path: str) -> Optiona
     # Try with path parts
     parts = import_name.split('.')
     if len(parts) > 1:
+        # Use Path.joinpath for proper path construction
         possible_paths.extend([
             root / parts[0] / f"{parts[-1]}.py",
-            root / '/'.join(parts[:-1]) / f"{parts[-1]}.py",
+            root.joinpath(*parts[:-1]) / f"{parts[-1]}.py",
         ])
     
     for path in possible_paths:
